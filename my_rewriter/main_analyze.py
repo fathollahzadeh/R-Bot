@@ -184,7 +184,6 @@ if __name__ == '__main__':
     template_rewrites = []
 
     for (query, name) in _workload:
-        if name in ["query17"]:
             query = re.sub(r'--.*\n', '', query)
             rewrite_obj = analyze(query, name, args.log_dir, args.compute_latency, args.large, args.no_reflection)
             template_rewrites.append(rewrite_obj)
