@@ -30,4 +30,5 @@ def test(name: str, query: str, schema: str, pg_args: DBArgs, model_args: dict[s
         res = rag_structure_retrieve(query, schema, docstore, embed_dim=model_args['EMBED_DIM'], RETRIEVER_TOP_K=RETRIEVER_TOP_K)
     else:
         raise ValueError(f'Invalid index type: {index}')
+
     rag_rewrite(res['retriever_res'], res['rewrites'], query, schema, pg_args, model_args, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS)

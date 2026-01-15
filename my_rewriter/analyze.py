@@ -172,18 +172,25 @@ if DATASET == 'calcite':
 else:
     queries_path = os.path.join('..', DATASET)
     query_templates = os.listdir(queries_path)
-    for template in tqdm(query_templates):
-        max_idx = 1 if args.large else 2
-        for idx in range(max_idx):
-            query_filename = f'{queries_path}/{template}/{template}_{idx}.sql'
-            content = open(query_filename, 'r').read()
-            content = re.sub(r'--.*\n', '', content)
-            queries = [q.strip() + ';' for q in content.split(';') if q.strip()]
-            for j, query in enumerate(queries):
-                name = f'{template}_{idx}' if len(queries) == 1 else f'{template}_{idx}_{j}'
+    query_filename = "/home/saeed/Documents/Github/ReSQL/Experiments/workload/PostgreSQL/tpch/query1.sql"  # f'{queries_path}/{template}/{template}_{idx}.sql'
+    content = open(query_filename, 'r').read()
+    query = re.sub(r'--.*\n', '', content)
+    name = f'query1'
+    rewrite_obj = analyze(query, name)
+    template_rewrites.append(rewrite_obj)
 
-                rewrite_obj = analyze(query, name)
-                template_rewrites.append(rewrite_obj)
+    # for template in tqdm(query_templates):
+    #     max_idx = 1 if args.large else 2
+    #     for idx in range(max_idx):
+    #         query_filename = f'{queries_path}/{template}/{template}_{idx}.sql'
+    #         content = open(query_filename, 'r').read()
+    #         content = re.sub(r'--.*\n', '', content)
+    #         queries = [q.strip() + ';' for q in content.split(';') if q.strip()]
+    #         for j, query in enumerate(queries):
+    #             name = f'{template}_{idx}' if len(queries) == 1 else f'{template}_{idx}_{j}'
+    #
+    #             rewrite_obj = analyze(query, name)
+    #             template_rewrites.append(rewrite_obj)
 
 input_attr = 'input_latency' if args.compute_latency else 'input_cost'
 output_attr = 'output_latency' if args.compute_latency else 'output_cost'

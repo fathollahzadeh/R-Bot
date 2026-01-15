@@ -66,12 +66,21 @@ elif DATASET == 'hbom':
 else:
     queries_path = os.path.join('..', DATASET)
     query_templates = os.listdir(queries_path)
-    for template in query_templates:
-        for idx in range(2):
-            query_filename = f'{queries_path}/{template}/{template}_{idx}.sql'
-            content = open(query_filename, 'r').read()
-            content = re.sub(r'--.*\n', '', content)
-            queries = [q.strip() + ';' for q in content.split(';') if q.strip()]
-            for j, query in enumerate(queries):
-                name = f'{template}_{idx}' if len(queries) == 1 else f'{template}_{idx}_{j}'
-                test(name, query, schema, pg_args, model_args, docstore, LOG_DIR, RETRIEVER_TOP_K=RETRIEVER_TOP_K, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, index=args.index)
+
+    query_filename = "/home/saeed/Documents/Github/ReSQL/Experiments/workload/PostgreSQL/tpch/query1.sql"  # f'{queries_path}/{template}/{template}_{idx}.sql'
+    content = open(query_filename, 'r').read()
+    query = re.sub(r'--.*\n', '', content)
+    name = f'query1'
+    test(name, query, schema, pg_args, model_args, docstore, LOG_DIR, RETRIEVER_TOP_K=RETRIEVER_TOP_K,
+         CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, index=args.index)
+
+    # for template in query_templates:
+    #     for idx in range(1):
+    #         query_filename = "/home/saeed/Documents/Github/ReSQL/Experiments/workload/PostgreSQL/tpch/query{}.sql" #f'{queries_path}/{template}/{template}_{idx}.sql'
+    #         content = open(query_filename, 'r').read()
+    #         content = re.sub(r'--.*\n', '', content)
+    #         queries = [q.strip() + ';' for q in content.split(';') if q.strip()]
+    #         for j, query in enumerate(queries):
+    #             name = f'{template}_{idx}' if len(queries) == 1 else f'{template}_{idx}_{j}'
+    #             test(name, query, schema, pg_args, model_args, docstore, LOG_DIR, RETRIEVER_TOP_K=RETRIEVER_TOP_K, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, index=args.index)
+    #             break

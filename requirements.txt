@@ -3,7 +3,14 @@ llama_index
 llama-index-vector-stores-chroma
 jsonlines
 jpype1
-sqlglot
 psycopg2
 prettytable
 scipy
+llama-index-embeddings-huggingface
+llama-index-embeddings-gemini
+llama-index-llms-openai-like
+llama-index-llms-gemini
+sqlglot==23.6.3
+tiktoken==0.7
+google-genai
+PyYAML==6.0.1

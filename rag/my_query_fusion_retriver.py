@@ -61,6 +61,12 @@ class MyQueryFusionRetriever(BaseRetriever):
         self._llm = (
             resolve_llm(llm, callback_manager=callback_manager) if llm else Settings.llm
         )
+
+        self.llm_result_log = ""
+        self.prompt_log = ""
+        self.generation_log = ""
+
+
         super().__init__(
             callback_manager=callback_manager,
             object_map=object_map,
@@ -78,13 +84,11 @@ class MyQueryFusionRetriever(BaseRetriever):
     async def _achat(self, messages: List[Dict]) -> str:
         chat_messages = [ChatMessage(**m) for m in messages]
         start = time.time()
-        try:
-            response = await self._llm.achat(chat_messages)
-        except (ConnectionResetError, openai.APIConnectionError):
-            time.sleep(5)
-            response = await self._llm.achat(chat_messages)
+        response = self._llm.chat(chat_messages)
+
         logging.debug({'messages': messages, 'response': response.message.content, 'time': time.time() - start})
         return response.message.content
+
 
     def _get_queries(self, original_query: str) -> List[QueryBundle]:
         rewrites, matched_rules = gen_rewrites_from_rules(sql=original_query, schema=self.schema, fun=self._achat, verbose=self._verbose)
@@ -371,3 +375,34 @@ class MyQueryFusionRetriever(BaseRetriever):
             return self._simple_fusion(results)[: self.similarity_top_k]
         else:
             raise ValueError(f"Invalid fusion mode: {self.mode}")
+
+    def get_number_tokens(messages: str):
+        from google.genai import types
+        from google import genai
+        generation_config = types.GenerateContentConfig(
+            temperature=0,
+            top_p=0.95,
+            top_k=64,
+            max_output_tokens=3200000,
+            safety_settings=[
+                types.SafetySetting(
+                    category="HARM_CATEGORY_CIVIC_INTEGRITY",
+                    threshold="BLOCK_LOW_AND_ABOVE",  # Block most
+                ),
+            ],
+            response_mime_type="text/plain",
+        )
+
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        ]
+
+        model = genai.GenerativeModel(model_name='gemini-2.5-pro',
+                                      generation_config=generation_config,
+                                      safety_settings=safety_settings)
+
+        number_of_tokens = model.count_tokens(messages).total_tokens
+        return number_of_tokens

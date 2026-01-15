@@ -8,7 +8,7 @@ from jpype.types import *
 # zip -d LearnedRewrite.jar META-INF/DUMMY.DSA
 ''' Configure JAVA environment for JPype '''
 classpath = []
-local_lib_dir = 'CalciteRewrite/out/artifacts/LearnedRewrite_jar'
+local_lib_dir = '../CalciteRewrite/out/artifacts/LearnedRewrite_jar'
 classpath.extend([os.path.join(local_lib_dir, jar) for jar in os.listdir(local_lib_dir)])
 
 if not jp.isJVMStarted():

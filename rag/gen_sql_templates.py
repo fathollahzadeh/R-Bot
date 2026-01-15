@@ -119,7 +119,16 @@ def mirror(node: exp.Expression) -> exp.Expression:
     return node
 
 def preprocess(node):
-    node.pop_comments()
+    #node.pop_comments()
+    ########################################33
+    def pop_comments_safe(expr):
+        comments = expr.comments or []
+        expr.comments = None
+        return comments
+
+    comments = pop_comments_safe(node)
+
+    ##########################################
 
     if isinstance(node, exp.Table):
         node.args.pop('db', None)
