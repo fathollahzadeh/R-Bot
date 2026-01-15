@@ -35,7 +35,7 @@ _workload_output = None
 
 
 def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
-
+    # embed_dim = 1536
     if 'gemini' in model_type:
         if load_model:
             Settings.embed_model = HuggingFaceEmbedding(
@@ -50,7 +50,7 @@ def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
                 model="text-embedding-3-small"
             )
         embed_dim = 1536
-    
+
     if 'gemini' in model_type.lower():
         if load_model:
            Settings.llm = Gemini(api_key=_last_API_Key, model=model_type)

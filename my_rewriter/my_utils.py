@@ -6,6 +6,7 @@ import time
 import openai
 from collections import defaultdict
 import asyncio
+from my_rewriter.LogResults import save_llm_log
 
 from llama_index.core.llms import LLM
 from llama_index.core.base.llms.types import ChatMessage
@@ -15,30 +16,66 @@ from llama_index.core.schema import (
     TextNode,
     NodeWithScore
 )
-from llama_index.llms.openai import OpenAI
 
 from my_rewriter.case_rules import case_rules, add_case_rules
 from rag.gen_rewrites_from_rules import calcite_rules
 
-def chat(messages: List[Dict]) -> str:
+def chat(messages: List[Dict], query_id:str) -> str:
+    from my_rewriter.config import _dbms, _dataset_name, _llm_model, _result_log_path
     chat_messages = [ChatMessage(**m) for m in messages]
     start = time.time()
     response = Settings.llm.chat(chat_messages)
-    logging.debug({'messages': messages, 'response': response.message.content, 'time': time.time() - start})
-    return response.message.content
+    elapsed_time = time.time() - start
 
-async def achat(messages: List[Dict], model: LLM = None) -> str:
+    response_txt = response.message.content
+    messages_txt = []
+    for m in messages:
+        messages_txt.append(m['role'])
+        messages_txt.append(m['content'])
+
+    messages_txt = '\n '.join(messages_txt)
+    total_token_count = get_number_tokens(f"{messages_txt}{response_txt}")
+    logging.debug(
+        {'messages': messages, 'response': response_txt, "total_tokens": total_token_count, 'time': elapsed_time})
+    save_llm_log(llm_model=_llm_model, result_log_path=_result_log_path, time_total=elapsed_time,
+                 all_token_count=total_token_count, dataset_name=_dataset_name, dbms=_dbms, query_id=query_id)
+    return response_txt
+
+
+async def achat(messages: List[Dict], query_id:str, model: LLM = None) -> str:
+    from my_rewriter.config import _dbms, _dataset_name, _llm_model, _result_log_path
     if model is None:
         model = Settings.llm
+
     chat_messages = [ChatMessage(**m) for m in messages]
-    start = time.time()
+    elapsed_time = 0
     try:
+        start = time.time()
         response = await model.achat(chat_messages)
-    except (ConnectionResetError, openai.APIConnectionError):
+        elapsed_time = time.time() - start
+    except Exception as e:
         time.sleep(5)
         response = await model.achat(chat_messages)
-    logging.debug({'messages': messages, 'response': response.message.content, 'time': time.time() - start})
-    return response.message.content
+    response_txt = response.message.content
+
+    messages_txt = []
+    for m in messages:
+        messages_txt.append(m['role'])
+        messages_txt.append(m['content'])
+
+    messages_txt = '\n '.join(messages_txt)
+    total_token_count = get_number_tokens(f"{messages_txt}{response_txt}")
+    logging.debug(
+        {'messages': messages, 'response': response_txt, "total_tokens": total_token_count, 'time': elapsed_time})
+    save_llm_log(llm_model=_llm_model, result_log_path=_result_log_path, time_total=elapsed_time,
+                 all_token_count=total_token_count, dataset_name=_dataset_name, dbms=_dbms, query_id=query_id)
+    return response_txt
+
+def get_number_tokens(messages):
+        import google.generativeai as genai
+        model = genai.GenerativeModel('gemini-2.5-pro')
+        token_count = model.count_tokens(messages).total_tokens
+        return token_count
 
 def get_rule_sets(rule_names: t.List[str]) -> t.Dict[str, t.List[str]]:
     rule_groups_dict  = {}
@@ -138,15 +175,16 @@ for rule_group in RULE_DIVISIONS:
 CALCITE_OPERATOR_GROUPS = [['AGGREGATE'], ['CORRELATE'], ['FILTER'], ['INTERSECT', 'MINUS', 'UNION', 'SET_OP'], ['JOIN'], ['PROJECT'], ['SORT'], ['VALUES'], ['WINDOW']]
 
 class MyModel:
-    def __init__(self, model_args: t.Dict[str, str]):
+    def __init__(self, model_args: t.Dict[str, str], query_id:str=None):
         for k, v in model_args.items():
             setattr(self, k, v)
+        self.query_id = query_id
     
     async def gen_rewrites_from_cases(self, query: str, rewrite_cases_str: str) -> t.List[str]:
         messages = [{'role': 'system', 'content': self.GEN_CASE_REWRITE_SYS_PROMPT}, {'role': 'user', 'content': self.GEN_CASE_REWRITE_USER_PROMPT.format(sql=query, cases=rewrite_cases_str)}]
 
         for _ in range(2):
-            response = await achat(messages)
+            response = await achat(messages=messages, query_id=self.query_id, model=None)
 
             delimiter = 'Step 2:'
             delimiter_idx = response.find(delimiter)
@@ -169,7 +207,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.SELECT_CASE_RULE_SYS_PROMPT}, {'role': 'user', 'content': self.SELECT_CASE_RULE_USER_PROMPT.format(case=rewrite_case, rules=rules_str)}]
 
         for _ in range(2):
-            response = await achat(messages)
+            response = await achat(messages=messages, query_id=self.query_id, model=None)
             
             prefix = '```python'
             suffix = '```'
@@ -242,7 +280,7 @@ class MyModel:
     def cluster_rewrites(self, query: str, strategies_str: str, strategies: t.List[str]) -> t.List[t.List[str]]:
         messages = [{'role': 'system', 'content': self.CLUSTER_REWRITE_SYS_PROMPT}, {'role': 'user', 'content': self.CLUSTER_REWRITE_USER_PROMPT.format(sql=query, strategies=strategies_str)}]
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'
@@ -266,7 +304,7 @@ class MyModel:
             return cluster[0]
         
         messages = [{'role': 'system', 'content': self.SUMMARIZE_REWRITE_SYS_PROMPT}, {'role': 'user', 'content': self.SUMMARIZE_REWRITE_USER_PROMPT.format(sql=query, strategies=strategies_str)}]
-        response = await achat(messages)
+        response = await achat(messages=messages, query_id=self.query_id, model=None)
         return response
 
     async def summarize_all_strategies(self, query: str, strategies: List[str]) -> List[str]:
@@ -296,7 +334,7 @@ class MyModel:
 
         arranged_rule_sets = []
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             res = re.findall(r'```python\s*(.+?)\s*```', response, re.I | re.DOTALL)
             for python_content in res:
@@ -319,7 +357,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.ARRANGE_RULES_SYS_PROMPT}, {'role': 'user', 'content': self.ARRANGE_RULES_USER_PROMPT.format(sql=query, suggestions=suggestions_str, rules=rules_str, rule_sequences=arranged_rule_sets_str)}]
 
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'
@@ -344,7 +382,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.REARRANGE_RULES_SYS_PROMPT}, {'role': 'user', 'content': self.REARRANGE_RULES_USER_PROMPT.format(sql=query, suggestions=suggestions_str, rules=rules_str, arranged_rules=str(arranged_rules).replace("'", '"'), used_rules=str(used_rules).replace("'", '"'), unused_rules=str(unused_rules).replace("'", '"'))}]
 
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'
@@ -367,7 +405,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.SELECT_RULES_SYS_PROMPT}, {'role': 'user', 'content': self.SELECT_RULES_USER_PROMPT.format(sql=query, suggestions=suggestions_str, rules=rules_str)}]
 
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'
@@ -393,7 +431,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.SELECT_ARRANGE_RULES_SYS_PROMPT}, {'role': 'user', 'content': self.SELECT_ARRANGE_RULES_USER_PROMPT.format(sql=query, rules=rules_str)}]
 
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'
@@ -417,7 +455,7 @@ class MyModel:
         messages = [{'role': 'system', 'content': self.RAG_SELECT_ARRANGE_RULES_SYS_PROMPT}, {'role': 'user', 'content': self.RAG_SELECT_ARRANGE_RULES_USER_PROMPT.format(sql=query, documents=documents_str, rules=rules_str)}]
 
         for _ in range(2):
-            response = chat(messages)
+            response = chat(messages=messages, query_id=self.query_id)
             
             prefix = '```python'
             suffix = '```'

@@ -61,9 +61,7 @@ class MyQueryFusionRetriever(BaseRetriever):
         self._retrievers = [qa_retriever]
         self._queries = dict()
         self._retriever_weights = [1.0]
-        self._llm = (
-            resolve_llm(llm, callback_manager=callback_manager) if llm else Settings.llm
-        )
+        self._llm = (resolve_llm(llm, callback_manager=callback_manager) if llm else Settings.llm)
 
         from my_rewriter.config import _dbms, _dataset_name,_llm_model,_result_log_path, _output_path
         self.llm_result_log = _result_log_path
@@ -79,20 +77,35 @@ class MyQueryFusionRetriever(BaseRetriever):
         )
 
     def _chat(self, messages: List[Dict]) -> str:
-        chat_messages = [ChatMessage(**m) for m in messages]
-        start = time.time()
-        response = self._llm.chat(chat_messages)
-        logging.debug({'messages': messages, 'response': response.message.content, 'time': time.time() - start})
-        return response.message.content
-    
-    async def _achat(self, messages: List[Dict]) -> str:
-        from my_rewriter.config import _dbms, _dataset_name,_llm_model
-
+        from my_rewriter.config import _dbms, _dataset_name, _llm_model
         chat_messages = [ChatMessage(**m) for m in messages]
         start = time.time()
         response = self._llm.chat(chat_messages)
         elapsed_time = time.time() - start
 
+        response_txt = response.message.content
+
+        messages_txt = []
+        for m in messages:
+            messages_txt.append(m['role'])
+            messages_txt.append(m['content'])
+
+        messages_txt = '\n '.join(messages_txt)
+
+        total_token_count = self.get_number_tokens(f"{messages_txt}{response_txt}")
+        logging.debug(
+            {'messages': messages, 'response': response_txt, "total_tokens": total_token_count, 'time': elapsed_time})
+
+        save_llm_log(llm_model=_llm_model, result_log_path=self.llm_result_log, time_total=elapsed_time,
+                     all_token_count=total_token_count, dataset_name=_dataset_name, dbms=_dbms, query_id=self.query_id)
+        return response_txt
+    
+    async def _achat(self, messages: List[Dict]) -> str:
+        from my_rewriter.config import _dbms, _dataset_name,_llm_model
+        chat_messages = [ChatMessage(**m) for m in messages]
+        start = time.time()
+        response = await  self._llm.achat(chat_messages)
+        elapsed_time = time.time() - start
         response_txt = response.message.content
 
         messages_txt = []
@@ -107,8 +120,7 @@ class MyQueryFusionRetriever(BaseRetriever):
         logging.debug({'messages': messages, 'response': response_txt, "total_tokens": total_token_count, 'time': elapsed_time})
         save_llm_log(llm_model=_llm_model, result_log_path=self.llm_result_log, time_total=elapsed_time,
                      all_token_count=total_token_count, dataset_name=_dataset_name, dbms=_dbms, query_id=self.query_id)
-
-        return messages_txt
+        return response_txt
 
 
     def _get_queries(self, original_query: str) -> List[QueryBundle]:

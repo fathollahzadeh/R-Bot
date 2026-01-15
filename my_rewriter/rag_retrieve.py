@@ -64,7 +64,6 @@ def rag_retrieve(query_id:str,query: str, schema: str, docstore: SimpleDocumentS
     )
 
     stackoverflow_retriever = stackoverflow_index.as_retriever(similarity_top_k=RETRIEVER_TOP_K)
-
     retriever = MyQueryFusionRetriever(docstore=docstore, qa_retriever=stackoverflow_retriever, schema=schema, embed_dim=embed_dim, mode=FUSION_MODES.RECIPROCAL_RANK, similarity_top_k=RETRIEVER_TOP_K, use_async=False, verbose=True, query_id=query_id)
     retriever_res = retriever.retrieve(query)
     logging.info('Retrieved Rewrite Cases: ' + str(retriever_res))

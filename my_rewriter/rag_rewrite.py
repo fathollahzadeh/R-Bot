@@ -5,7 +5,7 @@ import typing as t
 from collections import defaultdict
 import json
 import itertools
-
+import sqlparse
 import chromadb
 from llama_index.core import VectorStoreIndex, StorageContext, Settings
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -26,15 +26,23 @@ from rag.gen_rewrites_from_rules import calcite_rules
 from my_rewriter.database import DBArgs
 from my_rewriter.my_utils import MyModel
 from my_rewriter.db_utils import execute_rewrite
+from my_rewriter.FileHandler import save_text_file
 
-def rag_rewrite(retriever_res: t.List[NodeWithScore], rewrites: t.List[t.Dict], query: str, schema: str, db_args: DBArgs, model_args: t.Dict[str, str], CASE_BATCH: int = 5, RULE_BATCH: int = 10, REWRITE_ROUNDS: int = 1):
-    model = MyModel(model_args)
+def format_sql(query: str) -> str:
+    formatted = sqlparse.format(
+        query,
+        reindent=True,
+        keyword_case='upper'  # Options: 'upper', 'lower', 'capitalize'
+    )
+    return formatted
+
+def rag_rewrite(retriever_res: t.List[NodeWithScore], rewrites: t.List[t.Dict], query: str, schema: str, db_args: DBArgs, model_args: t.Dict[str, str], CASE_BATCH: int = 5, RULE_BATCH: int = 10, REWRITE_ROUNDS: int = 1, query_id: str=""):
+    model = MyModel(model_args=model_args, query_id=query_id)
     nl_suggestions = [obj['rewrite'] for obj in rewrites['nl']]
     normal_rules = [r for r in rewrites['calcite'] if r['type'] == 'normal']
     explore_rules = [r for r in rewrites['calcite'] if r['type'] == 'explore']
     normal_suggestions = [obj['rewrite'] for obj in normal_rules]
     strategies = normal_suggestions + nl_suggestions
-
     tasks = []
     tasks.append(model.gen_summarize_strategies(query, retriever_res, strategies, case_batch=CASE_BATCH))
     tasks.append(model.select_rules_from_cases(retriever_res, normal_rules=normal_rules, explore_rules=explore_rules))
@@ -54,7 +62,6 @@ def rag_rewrite(retriever_res: t.List[NodeWithScore], rewrites: t.List[t.Dict], 
         relevant_rules = model.select_rules(query, suggestions_str, relevant_rules + selected_rules_lst[start_idx:end_idx])
         relevant_rules_str = [obj['name'] for obj in relevant_rules]
         logging.info(f'Rules After the {i + 1}th Selection: {relevant_rules_str}')
-
     arranged_rule_seq = model.arrange_rules(query, suggestions_str, relevant_rules)
     logging.info(f'Arranged Rule Sequence: {arranged_rule_seq}')
 
@@ -64,3 +71,9 @@ def rag_rewrite(retriever_res: t.List[NodeWithScore], rewrites: t.List[t.Dict], 
     rearranged_rule_seq = model.rearrange_rules(query, suggestions_str, relevant_rules, arranged_rule_seq, used_rules)
     logging.info(f'Rearranged Rule Sequence: {rearranged_rule_seq}')
     rewrite_res = execute_rewrite(query, schema, db_args, rearranged_rule_seq, REWRITE_ROUNDS)
+
+    output_sql = rewrite_res['output_sql']
+    from my_rewriter.config import _workload_output
+    fname = f"{_workload_output}/{query_id}.sql"
+
+    save_text_file(fname=fname, data=format_sql(output_sql))

@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from argparse import ArgumentParser
 
 sys.path.append('..')
@@ -40,8 +41,8 @@ if __name__ == '__main__':
     pg_config = init_db_config(args.database)
 
     RETRIEVER_TOP_K = args.topk
-    CASE_BATCH = 5
-    RULE_BATCH = 10
+    CASE_BATCH = 20
+    RULE_BATCH = 30
     REWRITE_ROUNDS = 1
 
     pg_args = DBArgs(pg_config)
@@ -51,7 +52,6 @@ if __name__ == '__main__':
     docstore = init_docstore()
 
     for (query, name) in _workload:
-
-        if name in ["query17"]:
+        if name in ["query1"]:
             test(name, query, schema, pg_args, model_args, docstore, args.log_dir, RETRIEVER_TOP_K=RETRIEVER_TOP_K,
              CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, index=args.index)

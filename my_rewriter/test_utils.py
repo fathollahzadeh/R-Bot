@@ -9,8 +9,8 @@ from my_rewriter.rag_rewrite import rag_rewrite
 
 def test(name: str, query: str, schema: str, pg_args: DBArgs, model_args: dict[str, str], docstore: SimpleDocumentStore, LOG_DIR: str, RETRIEVER_TOP_K: int = 10, CASE_BATCH: int = 5, RULE_BATCH: int = 10, REWRITE_ROUNDS: int = 1, index: str = 'hybrid'):
     log_filename = f'{LOG_DIR}/{name}.log'
-    print(log_filename)
     if os.path.exists(log_filename):
+        # os.remove(log_filename)
         return
     # Remove all handlers associated with the root logger object.
     for handler in logging.root.handlers[:]:
@@ -32,4 +32,5 @@ def test(name: str, query: str, schema: str, pg_args: DBArgs, model_args: dict[s
     else:
         raise ValueError(f'Invalid index type: {index}')
 
-    rag_rewrite(res['retriever_res'], res['rewrites'], query, schema, pg_args, model_args, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS)
+    print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
+    rag_rewrite(res['retriever_res'], res['rewrites'], query, schema, pg_args, model_args, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, query_id=name)
