@@ -21,6 +21,8 @@ from llama_index.core.base.llms.types import ChatMessage, LogProb, CompletionRes
 
 from rag.gen_sql_templates import gen_sql_templates
 from rag.gen_rewrites_from_rules import gen_rewrites_from_rules, get_one_hot, NL_RULES, NORMAL_RULES
+from my_rewriter.LogResults import save_llm_log
+from my_rewriter.FileHandler import save_text_file
 
 
 class FUSION_MODES(str, Enum):
@@ -47,6 +49,7 @@ class MyQueryFusionRetriever(BaseRetriever):
         callback_manager: Optional[CallbackManager] = None,
         objects: Optional[List[IndexNode]] = None,
         object_map: Optional[dict] = None,
+       query_id:str = None,
     ) -> None:
         self.docstore = docstore
         self.embed_dim = embed_dim
@@ -62,10 +65,11 @@ class MyQueryFusionRetriever(BaseRetriever):
             resolve_llm(llm, callback_manager=callback_manager) if llm else Settings.llm
         )
 
-        self.llm_result_log = ""
-        self.prompt_log = ""
-        self.generation_log = ""
-
+        from my_rewriter.config import _dbms, _dataset_name,_llm_model,_result_log_path, _output_path
+        self.llm_result_log = _result_log_path
+        self.prompt_log = f"{_output_path}/{_dataset_name}-{query_id}-{_dbms}-{_llm_model}-prompt.txt"
+        self.generation_log = f"{_output_path}/{_dataset_name}-{query_id}-{_dbms}-{_llm_model}-LLM.txt"
+        self.query_id = query_id
 
         super().__init__(
             callback_manager=callback_manager,
@@ -82,12 +86,29 @@ class MyQueryFusionRetriever(BaseRetriever):
         return response.message.content
     
     async def _achat(self, messages: List[Dict]) -> str:
+        from my_rewriter.config import _dbms, _dataset_name,_llm_model
+
         chat_messages = [ChatMessage(**m) for m in messages]
         start = time.time()
         response = self._llm.chat(chat_messages)
+        elapsed_time = time.time() - start
 
-        logging.debug({'messages': messages, 'response': response.message.content, 'time': time.time() - start})
-        return response.message.content
+        response_txt = response.message.content
+
+        messages_txt = []
+        for m in messages:
+            messages_txt.append(m['role'])
+            messages_txt.append(m['content'])
+
+        messages_txt = '\n '.join(messages_txt)
+        save_text_file(fname=self.prompt_log, data=messages_txt)
+        save_text_file(fname=self.generation_log, data=response_txt)
+        total_token_count = self.get_number_tokens(f"{messages_txt}{response_txt}")
+        logging.debug({'messages': messages, 'response': response_txt, "total_tokens": total_token_count, 'time': elapsed_time})
+        save_llm_log(llm_model=_llm_model, result_log_path=self.llm_result_log, time_total=elapsed_time,
+                     all_token_count=total_token_count, dataset_name=_dataset_name, dbms=_dbms, query_id=self.query_id)
+
+        return messages_txt
 
 
     def _get_queries(self, original_query: str) -> List[QueryBundle]:
@@ -376,33 +397,9 @@ class MyQueryFusionRetriever(BaseRetriever):
         else:
             raise ValueError(f"Invalid fusion mode: {self.mode}")
 
-    def get_number_tokens(messages: str):
-        from google.genai import types
-        from google import genai
-        generation_config = types.GenerateContentConfig(
-            temperature=0,
-            top_p=0.95,
-            top_k=64,
-            max_output_tokens=3200000,
-            safety_settings=[
-                types.SafetySetting(
-                    category="HARM_CATEGORY_CIVIC_INTEGRITY",
-                    threshold="BLOCK_LOW_AND_ABOVE",  # Block most
-                ),
-            ],
-            response_mime_type="text/plain",
-        )
+    def get_number_tokens(self, messages):
+        import google.generativeai as genai
 
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        ]
-
-        model = genai.GenerativeModel(model_name='gemini-2.5-pro',
-                                      generation_config=generation_config,
-                                      safety_settings=safety_settings)
-
-        number_of_tokens = model.count_tokens(messages).total_tokens
-        return number_of_tokens
+        model = genai.GenerativeModel('gemini-2.5-pro')
+        token_count = model.count_tokens(messages).total_tokens
+        return token_count

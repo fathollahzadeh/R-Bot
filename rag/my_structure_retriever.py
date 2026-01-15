@@ -17,6 +17,8 @@ class MyStructureRetriever(MyQueryFusionRetriever):
             self._queries[k] = v
         self._queries['matched_rules'] = matched_rules
 
+        print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
+
         rules_one_hot: List[float] = []
         rules_one_hot.extend(get_one_hot(NL_RULES, matched_rules['nl']))
         rules_one_hot.extend(get_one_hot(NORMAL_RULES, matched_rules['calcite_normal']))

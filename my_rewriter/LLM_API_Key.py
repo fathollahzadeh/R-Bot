@@ -6,7 +6,7 @@ import yaml
 
 class LLM_API_Key(object):
     def __init__(self, api_config_path: str):
-        from .Config import _llm_platform
+        from my_rewriter.config import _llm_platform
         self.platform_keys = {}
         aks = dict()
         with open(api_config_path, "r") as f:
@@ -34,7 +34,7 @@ class LLM_API_Key(object):
         self.begin = True
 
     def get_API_Key(self):
-        from .Config import _llm_platform, _delay, _last_API_Key
+        from my_rewriter.config import _llm_platform, _delay, _last_API_Key
         aks = self.platform_keys[_llm_platform]
         sleep_time = _delay
         selectedID = None
@@ -59,7 +59,7 @@ class LLM_API_Key(object):
             return self.get_API_Key()
 
     def set_update(self, ID, save_log: bool = False):
-        from .Config import _llm_platform, _system_log_file
+        from my_rewriter.config import _llm_platform, _system_log_file
         self.platform_keys[_llm_platform][ID]["count"] += 1
         self.platform_keys[_llm_platform][ID]["last_time"] = time.time()
 

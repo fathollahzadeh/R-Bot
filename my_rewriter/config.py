@@ -6,7 +6,7 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import os
 import yaml
 from .FileHandler import read_text_file_line_by_line
-from .LLM_API_Key import LLM_API_Key
+from my_rewriter.LLM_API_Key import LLM_API_Key
 
 CACHE_PATH = None #'/home/saeed/Downloads/RBoth/cache/'
 CASE_RULES_PATH = 'stackoverflow-rewrite-rules-query-optimization.jsonl'
@@ -29,6 +29,10 @@ _pgsql_password = None
 _pgsql_host = None
 _pgsql_port = None
 
+_output_path = None
+_result_log_path = None
+_workload_output = None
+
 
 def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
 
@@ -49,7 +53,7 @@ def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
     
     if 'gemini' in model_type.lower():
         if load_model:
-            Settings.llm = Gemini(api_key="AIzaSyAP7tM6rkwNjr2JwwK-BJzSq9OiQSYgf5E", model="gemini-2.5-pro")
+           Settings.llm = Gemini(api_key=_last_API_Key, model=model_type)
     else:
         print(f" -- Model ({model_type}) is not support! -- ")
         raise  # Re-raises the ZeroDivisionError
@@ -88,15 +92,18 @@ def init_db_config(database: str) -> dict[str, str]:
             'db': 'postgresql'
     }
 
-
-#############################
 def load_config_system(system_log: str,
                        llm_model: str = None,
                        config_path: str = "LLMConfig.yaml",
                        api_config_path: str = "APIKeys.yaml",
                        CA_PATH: str = None,
                        workload_path: str = None,
-                       db_config_path: str = "DBConfig.yaml"):
+                       db_config_path: str = "DBConfig.yaml",
+                       output_path: str=None,
+                       result_log_path:str = None,
+                       workload_output:str = None,
+                       dataset_name:str = None,
+                       dbms:str = None,):
     import yaml
     global _llm_model
     global _llm_platform
@@ -110,6 +117,18 @@ def load_config_system(system_log: str,
     global _top_k
     global _top_p
     global _dataset_name
+    global CACHE_PATH
+    global _output_path
+    global _result_log_path
+    global _workload_output
+    global _dbms
+
+    _output_path = output_path
+    _result_log_path = result_log_path
+    _workload_output = workload_output
+    _dbms = dbms
+    _dataset_name = dataset_name
+
     _system_log_file = system_log
     CACHE_PATH = CA_PATH
     with open(config_path, "r") as f:
@@ -162,7 +181,8 @@ def load_config_system(system_log: str,
         if _llm_model is None:
             raise Exception(f'Error: model "{llm_model}" is not in the Config.yaml list!')
 
-        _LLM_API_Key = LLM_API_Key(api_config_path=api_config_path)
+        (_, _last_API_Key) = LLM_API_Key(api_config_path=api_config_path).get_API_Key()
+
 
         if workload_path is not None:
             load_workload_queries(workload_path=workload_path)
@@ -203,5 +223,5 @@ def load_workload_queries(workload_path: str):
                 fname = os.path.join(path, name)
                 query = read_text_file_line_by_line(fname)
                 if "SELECT" in query or "select" in query:
-                    _workload.append((query, tail))
+                    _workload.append((query, tail.replace(".sql", "")))
     return _workload

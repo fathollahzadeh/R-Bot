@@ -30,7 +30,9 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
-    load_config_system(system_log=args.system_log, llm_model=args.llm_model, CA_PATH=args.cache_path, workload_path=args.workload_path)
+    load_config_system(system_log=args.system_log, llm_model=args.llm_model, CA_PATH=args.cache_path,
+                       workload_path=args.workload_path, result_log_path=args.result_log_path, output_path=args.output_path,
+                       workload_output=args.workload_output, dbms=args.dbms, dataset_name=args.database)
 
     from my_rewriter.config import _workload
 
@@ -43,11 +45,13 @@ if __name__ == '__main__':
     REWRITE_ROUNDS = 1
 
     pg_args = DBArgs(pg_config)
-    schema_path = os.path.join('../schema', f"{args.database}.sql")
+    schema_path = os.path.join('../schemas', f"{args.database}.sql")
     schema = open(schema_path, 'r').read()
 
     docstore = init_docstore()
 
     for (query, name) in _workload:
-        test(name, query, schema, pg_args, model_args, docstore, args.log_dir, RETRIEVER_TOP_K=RETRIEVER_TOP_K,
+
+        if name in ["query17"]:
+            test(name, query, schema, pg_args, model_args, docstore, args.log_dir, RETRIEVER_TOP_K=RETRIEVER_TOP_K,
              CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, index=args.index)
