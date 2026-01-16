@@ -32,5 +32,4 @@ def test(name: str, query: str, schema: str, pg_args: DBArgs, model_args: dict[s
     else:
         raise ValueError(f'Invalid index type: {index}')
 
-    print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
     rag_rewrite(res['retriever_res'], res['rewrites'], query, schema, pg_args, model_args, CASE_BATCH=CASE_BATCH, RULE_BATCH=RULE_BATCH, REWRITE_ROUNDS=REWRITE_ROUNDS, query_id=name)

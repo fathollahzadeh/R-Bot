@@ -7,6 +7,7 @@ import openai
 from collections import defaultdict
 import asyncio
 from my_rewriter.LogResults import save_llm_log
+import tiktoken
 
 from llama_index.core.llms import LLM
 from llama_index.core.base.llms.types import ChatMessage
@@ -72,10 +73,21 @@ async def achat(messages: List[Dict], query_id:str, model: LLM = None) -> str:
     return response_txt
 
 def get_number_tokens(messages):
-        import google.generativeai as genai
-        model = genai.GenerativeModel('gemini-2.5-pro')
-        token_count = model.count_tokens(messages).total_tokens
-        return token_count
+        from my_rewriter.config import _llm_model
+        if "gemini" in _llm_model:
+            import google.generativeai as genai
+            model = genai.GenerativeModel('gemini-2.5-pro')
+            token_count = model.count_tokens(messages).total_tokens
+            return token_count
+        else:
+            return get_number_tokens_groq(messages)
+
+def get_number_tokens_groq(message: str):
+        enc = tiktoken.get_encoding("cl100k_base")
+        enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
+        token_integers = enc.encode(message)
+        num_tokens = len(token_integers)
+        return num_tokens
 
 def get_rule_sets(rule_names: t.List[str]) -> t.Dict[str, t.List[str]]:
     rule_groups_dict  = {}

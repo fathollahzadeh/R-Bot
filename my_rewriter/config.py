@@ -1,5 +1,6 @@
 from llama_index.core import Settings
 from llama_index.llms.gemini import Gemini
+from llama_index.llms.groq import Groq
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
@@ -36,7 +37,7 @@ _workload_output = None
 
 def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
     # embed_dim = 1536
-    if 'gemini' in model_type:
+    if 'gemini' in model_type or "gpt-oss" in model_type:
         if load_model:
             Settings.embed_model = HuggingFaceEmbedding(
                 model_name='Alibaba-NLP/gte-Qwen2-1.5B-instruct',
@@ -54,6 +55,9 @@ def init_llms(model_type: str = '', load_model=True) -> dict[str, str]:
     if 'gemini' in model_type.lower():
         if load_model:
            Settings.llm = Gemini(api_key=_last_API_Key, model=model_type)
+    elif "gpt-oss" in model_type.lower():
+        if load_model:
+            Settings.llm = Groq(api_key=_last_API_Key, model=f"openai/{model_type}")
     else:
         print(f" -- Model ({model_type}) is not support! -- ")
         raise  # Re-raises the ZeroDivisionError

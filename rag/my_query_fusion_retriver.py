@@ -2,7 +2,7 @@ import asyncio
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, cast
 from collections import defaultdict
-import openai
+import tiktoken
 import time
 import logging
 import math
@@ -410,8 +410,18 @@ class MyQueryFusionRetriever(BaseRetriever):
             raise ValueError(f"Invalid fusion mode: {self.mode}")
 
     def get_number_tokens(self, messages):
-        import google.generativeai as genai
+            from my_rewriter.config import _llm_model
+            if "gemini" in _llm_model:
+                import google.generativeai as genai
+                model = genai.GenerativeModel('gemini-2.5-pro')
+                token_count = model.count_tokens(messages).total_tokens
+                return token_count
+            else:
+                return self.get_number_tokens_groq(messages)
 
-        model = genai.GenerativeModel('gemini-2.5-pro')
-        token_count = model.count_tokens(messages).total_tokens
-        return token_count
+    def get_number_tokens_groq(self, message: str):
+        enc = tiktoken.get_encoding("cl100k_base")
+        enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
+        token_integers = enc.encode(message)
+        num_tokens = len(token_integers)
+        return num_tokens

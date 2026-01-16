@@ -10,6 +10,7 @@ llama-index-embeddings-huggingface
 llama-index-embeddings-gemini
 llama-index-llms-openai-like
 llama-index-llms-gemini
+llama-index-llms-groq
 sqlglot==23.6.3
 tiktoken==0.7
 PyYAML==6.0.1

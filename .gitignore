@@ -6,3 +6,4 @@ __pycache__/
 /rag/stackoverflow-rewrite-sql-templates-embed-query-optimization.jsonl
 /rag/stackoverflow-rewrite-sql-templates-query-optimization.jsonl
 /rag/chroma_db/
+/my_rewriter/APIKeys.yaml
